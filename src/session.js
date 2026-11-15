@@ -37,6 +37,7 @@ var state = {
 
 // Last values actually handed to mpv, so we only send what moved.
 var pushed = { yaw: null, pitch: null, fov: null };
+var lastPanAxis = null;
 // The view baked into the current filter string. mpv rebuilds the libavfilter
 // graph from that string whenever the format changes, so this is what `v360`
 // falls back to when it does.
@@ -472,12 +473,26 @@ function flush() {
   if (fovDelta >= yawDelta && fovDelta >= pitchDelta && moved(v.fov, pushed.fov)) {
     mpv.command("vf-command", [LABEL, "d_fov", String(round2(v.fov)), "v360"]);
     pushed.fov = v.fov;
-  } else if (yawDelta >= pitchDelta && moved(v.yaw, pushed.yaw)) {
-    mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw)), "v360"]);
-    pushed.yaw = v.yaw;
-  } else if (moved(v.pitch, pushed.pitch)) {
-    mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch)), "v360"]);
-    pushed.pitch = v.pitch;
+  } else {
+    var yawMoved = moved(v.yaw, pushed.yaw);
+    var pitchMoved = moved(v.pitch, pushed.pitch);
+    var sendYaw;
+    if (yawMoved && pitchMoved) {
+      // Alternate when both axes are pending so a steady horizontal drag cannot
+      // starve a small but real vertical movement indefinitely.
+      sendYaw = lastPanAxis !== "yaw";
+    } else {
+      sendYaw = yawDelta >= pitchDelta;
+    }
+    if (sendYaw && yawMoved) {
+      mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw)), "v360"]);
+      pushed.yaw = v.yaw;
+      lastPanAxis = "yaw";
+    } else if (pitchMoved) {
+      mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch)), "v360"]);
+      pushed.pitch = v.pitch;
+      lastPanAxis = "pitch";
+    }
   }
 
   scheduleCommit();
