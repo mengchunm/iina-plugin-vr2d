@@ -157,6 +157,8 @@ function enable(source, view, out, eye, mode) {
       }
       changedVo = true;
     } catch (e) {
+      try { if (savedVo) mpv.set("vo", savedVo); } catch (ignored) {}
+      savedVo = null;
       return false;
     }
   }
