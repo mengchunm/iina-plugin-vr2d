@@ -214,13 +214,12 @@
 
     <div class="row">
       <label class="name" for="updateRate">Pan update rate</label>
-      <input type="number" id="updateRate" min="0" max="30" step="1" />
-      <span>per second, or 0 to pace automatically</span>
+      <input type="number" id="updateRate" min="0" max="240" step="1" />
+      <span>per second, or 0 to follow the display on the GPU path</span>
     </div>
     <p class="hint">
-      Every pan step makes the projection map be recomputed, at roughly 0.06 s of CPU per megapixel
-      rendered — so the affordable rate depends on how large a window you are filling. Left at 0,
-      VR2D works it out from the current size. It costs nothing once you stop moving.
+      On the GPU path, 0 follows IINA's reported display refresh rate. CPU v360 still has a
+      practical limit at high output resolutions, so its automatic rate remains size based.
     </p>
 
     <hr />

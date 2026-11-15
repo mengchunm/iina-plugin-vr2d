@@ -196,7 +196,7 @@ IINA 1.5.1 uses a `libmpv` render API backed by the legacy `vo=gpu` shader parse
 parser does not support the `//!PARAM` blocks used by newer `gpu-next` shaders, so VR2D
 builds a legacy shader with the current yaw, pitch, FOV, eye, projection and sampling
 values compiled into it. During playback this is a GPU reprojection pass; a drag replaces
-the pass at a paced 30 Hz and keeps the output dimensions unchanged. The legacy path uses
+the pass at the display refresh rate (60 Hz on a typical panel) and keeps the output dimensions unchanged. The legacy path uses
 linear sampling to keep full Retina output responsive. A `gpu-next` renderer, when exposed
 by a newer mpv build, uses live shader parameters instead of replacing the pass.
 
@@ -249,8 +249,8 @@ sharpness-versus-smoothness dial:
 | Limit to 1080p | Deliberately lower output size | Lower GPU work, with less output detail |
 | Limit to 720p | Deliberately lower output size | Lowest GPU work, with less output detail |
 
-Leave **Pan update rate** at 0 and VR2D works out a sustainable rate from
-whatever it is currently rendering. Also there: detection behaviour, starting
+Leave **Pan update rate** at 0 and the GPU path follows IINA's reported display refresh rate.
+The CPU fallback continues to choose a sustainable rate from the rendered size. Also there: detection behaviour, starting
 field of view (horizontal, default 105°), eye, drag sensitivity and direction,
 keyboard step, interpolation, and the safe-area margins.
 

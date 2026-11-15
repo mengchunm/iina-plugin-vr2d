@@ -527,7 +527,7 @@ function distance(current, sent) {
 
 function startTimer() {
   stopTimer();
-  timer = setInterval(flush, Math.max(8, Math.round(1000 / updateRate)));
+  timer = setInterval(flush, Math.max(4, Math.round(1000 / updateRate)));
 }
 
 function stopTimer() {
@@ -620,7 +620,7 @@ function setOutput(out) {
 }
 
 function setUpdateRate(rate) {
-  updateRate = Math.max(5, Math.min(60, rate || 30));
+  updateRate = Math.max(5, Math.min(240, rate || 60));
   if (state.enabled) startTimer();
 }
 

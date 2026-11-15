@@ -40,7 +40,7 @@ var DEFAULTS = {
   fieldOfView: 105,
   quality: 0, // 0 = match the display; otherwise a maximum height
   interp: "cubic",
-  updateRate: 0, // 0 = pace automatically from the rendered size
+  updateRate: 0, // 0 = follow display refresh on GPU, size-based pacing on CPU
   gpuMode: "auto", // use GPU only when IINA is already using gpu-next
   dragSensitivity: 1,
   keyStep: 35, // per cent of the visible field per second
@@ -278,12 +278,20 @@ function autoUpdateRate(out) {
   return Math.round(geometry.clamp(PAN_CPU_BUDGET / perStep, 10, 30));
 }
 
+function displayRefreshRate() {
+  try {
+    var fps = mpv.getNumber("display-fps");
+    if (fps > 0) return Math.round(geometry.clamp(fps, 30, 240));
+  } catch (e) {}
+  return 60;
+}
+
 function applyUpdateRate() {
   var configured = prefNumber("updateRate");
   session.setUpdateRate(
     configured > 0 ? configured :
       (session.state.renderer === "gpu"
-        ? (session.legacyGpu() ? 30 : 60)
+        ? displayRefreshRate()
         : autoUpdateRate(session.state.out))
   );
 }
