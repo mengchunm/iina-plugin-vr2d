@@ -185,24 +185,21 @@
       </select>
     </div>
     <p class="hint">
-      An upper bound. VR2D already limits itself to what the source can actually resolve — a
-      1440-wide eye covering 180° holds about 8 pixels per degree, so a 105° view is worth roughly
-      840 of them, and rendering far past that costs time without adding detail. Lower this if
-      panning still feels heavy.
+      An upper bound for the output height. Leave this at “Match the display” to keep the full
+      window pixel size. During GPU dragging VR2D keeps that size and uses a faster sampling path.
     </p>
 
     <div class="row">
       <label class="name" for="gpuMode">GPU reprojection</label>
       <select id="gpuMode">
-        <option value="auto">Auto — use GPU when IINA is already set to gpu-next</option>
+        <option value="auto">Auto — use GPU when IINA exposes gpu-next</option>
         <option value="on">On — require gpu-next (otherwise use CPU fallback)</option>
         <option value="off">Off — use CPU v360</option>
       </select>
     </div>
     <p class="hint">
-      GPU mode uses Metal through IINA's gpu-next renderer for equirectangular 180°/360° video.
-      EAC and fisheye sources automatically use the CPU fallback. Set IINA's video output to
-      gpu-next for Auto mode.
+      GPU mode uses Metal through IINA's gpu-next renderer for equirectangular, half-equirectangular,
+      fisheye and EAC VR video. If GPU passes are unavailable, Auto uses CPU v360.
     </p>
 
     <div class="row">

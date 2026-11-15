@@ -376,6 +376,13 @@ function resyncNow() {
  */
 function verifyAttachment(attempt) {
   if (!state.enabled || !state.attached || filterIsLive()) return;
+  // A paused player has no output frame to validate. Waiting here avoids
+  // forcing a decoder rebuild merely because VR2D was enabled before playback
+  // started or while the user had paused on the first frame.
+  if (isPaused()) {
+    scheduleVerify(attempt);
+    return;
+  }
 
   if (attempt === 0) {
     console.warn("VR2D: filter produced no frames, retrying with software decoding");
@@ -393,9 +400,12 @@ function verifyAttachment(attempt) {
 }
 
 function scheduleVerify(attempt) {
+  var megapixels = (state.out.width * state.out.height) / 1e6;
+  var delay = Math.round(geometry.clamp(1800 + megapixels * 450, 1800, 6000));
+  if (attempt > 0) delay = Math.min(8000, delay + 1500);
   setTimeout(function () {
     verifyAttachment(attempt);
-  }, 900);
+  }, delay);
 }
 
 function detach() {

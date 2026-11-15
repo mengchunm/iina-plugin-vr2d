@@ -24,9 +24,9 @@ function projectionName(source) {
   if (!source) return null;
   if (source.projection === "e") {
     if (source.layout === "mono") return "equirectangular";
+    if (source.layout === "sbs") return "dual_equirectangular";
     if (source.layout === "tb") return "dual_vert_equirectangular";
-    // The mature shader has no horizontal dual full-sphere mode. VR180 SBS
-    // sources are detected as `he`, which is handled below.
+    // VR180 SBS sources are detected as `he`, which is handled below.
     return null;
   }
   if (source.projection === "he") {
@@ -58,6 +58,7 @@ function currentVo() {
 
 function gpuOutputActive() {
   var vo = currentVo();
+  if (!vo) return true; // video output may still be initializing at file load
   if (vo === "gpu-next" || vo === "libmpv") return true;
   // IINA can expose libmpv as the vo property while its internal renderer is
   // gpu-next. vo-passes is populated by the libplacebo renderer and avoids
