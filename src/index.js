@@ -396,7 +396,7 @@ function enableVR2D(announce) {
   refreshOverlay();
   updateMenu();
   if (announce) {
-    var renderer = session.state.renderer === "gpu" ? "Metal GPU" :
+    var renderer = session.state.renderer === "gpu" ? "GPU shader" :
       "CPU fallback" + (session.gpuError() ? ": " + session.gpuError() : "");
     osd("VR2D on — " + session.describe() + " [" + renderer + "]");
   }
