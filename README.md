@@ -146,20 +146,17 @@ eye, output size — is fixed at build time.
 All of these were measured on IINA 1.4.4 / mpv 0.38, and each one shapes the
 design:
 
-- **Reprojection is CPU work, and it is not cheap.** Every pan step makes `v360`
-  recompute its entire remap table — about **0.064 s of CPU per megapixel of
-  output**, twice per step (yaw and pitch). At a 1512x756 window that is 0.29 s
-  per step. VR2D therefore paces its own update rate from the size being
-  rendered, rather than hammering a fixed 30 Hz and stuttering.
-- **Sharpness and smoothness genuinely trade against each other.** Both are
-  governed by the same number — output pixels. Rendering at display resolution
-  is the only way to avoid a soft, upscaled picture, and it is also what makes
-  panning cost the most. See *Preferences* for which end to pick.
-- **Hardware decoding has to copy back.** `v360` needs frames in system memory.
-  Under plain `videotoolbox` mpv gives up with `Disabling filter vr2d because it
-  has failed` — while still listing the filter in `vf`, so the failure is
-  otherwise invisible. VR2D switches to `auto-copy`, which keeps the hardware
-  decoder and just reads frames back, and restores your setting when it stops.
+- **GPU reprojection is the normal path on IINA 1.5.1.** IINA's bundled mpv 0.41
+  exposes `vo=libmpv` and its legacy shader parser does not support `//!PARAM`.
+  VR2D compiles the camera values into a legacy GPU shader and swaps that shader
+  when the view changes. Playback stays on the GPU and never rebuilds an FFmpeg
+  `v360` graph.
+- **Output size remains independent from the drag path.** VR2D keeps the full target
+  pixel size and source pixels. The legacy renderer uses one linear texture sample per
+  output pixel while moving, which keeps the GPU path responsive at Retina sizes.
+- **CPU fallback remains available.** It is used for unsupported layouts, disabled GPU
+  mode, or a renderer without a usable user-shader path. The CPU fallback still uses
+  copy-back decoding and paced `v360` updates.
 - **A graph rebuild throws runtime parameters away, and mpv may not tell you.**
   Any format change makes mpv re-parse the filter string, so `v360` reverts to
   the values baked in at attach time and the view snaps back on its own.
@@ -195,27 +192,30 @@ design:
 
 ### GPU path and CPU fallback
 
-On IINA 1.5 and later, VR2D can use `vo=gpu-next` with Metal through libplacebo. The default
-**Auto** mode uses the GPU when IINA exposes the libplacebo video passes, including IINA's
-`libmpv` wrapper. VR2D does not change the video output while a file is playing, because IINA
-rebuilds that output asynchronously. When GPU passes are unavailable, the plugin uses the CPU
-fallback. The GPU shader is adapted from the MIT licensed `kasper93/mpv360` projection core and
-supports equirectangular, half equirectangular, dual fisheye, dual vertical equirectangular and
-EAC layouts. It updates yaw, pitch and FOV through `glsl-shader-opts`, so dragging never rebuilds
-an FFmpeg filter graph. The CPU fallback uses `reset_rot=1` and targets `v360` explicitly.
+IINA 1.5.1 uses a `libmpv` render API backed by the legacy `vo=gpu` shader parser. That
+parser does not support the `//!PARAM` blocks used by newer `gpu-next` shaders, so VR2D
+builds a legacy shader with the current yaw, pitch, FOV, eye, projection and sampling
+values compiled into it. During playback this is a GPU reprojection pass; a drag replaces
+the pass at a paced 30 Hz and keeps the output dimensions unchanged. The legacy path uses
+linear sampling to keep full Retina output responsive. A `gpu-next` renderer, when exposed
+by a newer mpv build, uses live shader parameters instead of replacing the pass.
+
+The shader is adapted from the MIT licensed `kasper93/mpv360` projection core and supports
+equirectangular, half equirectangular, mono and dual fisheye, dual vertical equirectangular
+and EAC layouts. When the GPU path is unavailable or the layout is unsupported, VR2D uses
+the CPU `v360` fallback with `reset_rot=1`.
 
 ### Two things that were tried and rejected
 
-- **Reprojecting in a GPU shader.** VR2D uses the `mpv360` projection model when libplacebo
-  passes are available. Parameter changes update the GPU render pass directly and keep the
-  source at native resolution. Unsupported output paths use the CPU fallback.
-- **Rendering smaller while panning and sharper when still.** The implementation keeps the
-  output resolution unchanged. The CPU path reduces duplicate remap work when GPU passes are
-  unavailable.
+- **Reprojecting in a GPU shader.** The plugin keeps the source and output at their
+  full target dimensions. On IINA 1.5.1 it generates a legacy-compatible shader so the
+  bundled mpv 0.41 renderer can use the GPU even though it has no live PARAM support.
+- **Rendering smaller while panning and sharper when still.** The output resolution stays
+  fixed. The legacy GPU path changes only texture sampling and keeps one sample per output
+  pixel during a drag.
 
-What is left to make movement feel immediate on the CPU fallback is the read-out: the overlay
-predicts the view locally, with the same maths the plugin uses, so the angles and
-the field map track the cursor while the picture follows the paced filter updates.
+The overlay still predicts the view locally, but the picture now follows the legacy GPU
+shader replacement path on IINA 1.5.1. Unsupported paths retain the paced CPU fallback.
 
 ## Detection
 
@@ -245,9 +245,9 @@ sharpness-versus-smoothness dial:
 
 | Setting | Picture | Panning |
 |---|---|---|
-| Match the display *(default)* | Native, no upscaling | ~10 updates/s on a large window |
-| Limit to 1080p | Slightly soft on a Retina display | ~15 updates/s |
-| Limit to 720p | Noticeably soft | 30 updates/s |
+| Match the display *(default)* | Native output size | GPU: full-resolution drag with fast sampling |
+| Limit to 1080p | Deliberately lower output size | Lower GPU work, with less output detail |
+| Limit to 720p | Deliberately lower output size | Lowest GPU work, with less output detail |
 
 Leave **Pan update rate** at 0 and VR2D works out a sustainable rate from
 whatever it is currently rendering. Also there: detection behaviour, starting
@@ -256,8 +256,10 @@ keyboard step, interpolation, and the safe-area margins.
 
 ## Limitations
 
-- Reprojection is CPU-side, so hardware decoding runs in copy-back mode while VR2D is on, and
-  panning cannot be frame-rate smooth at full display resolution.
+- Unsupported layouts and explicitly disabled GPU mode use CPU `v360`; the GPU path keeps
+  hardware-decoded frames on the GPU through IINA's render API.
+- On IINA 1.5.1, camera changes replace a legacy shader pass at a paced rate because the
+  bundled mpv 0.41 renderer has no live shader PARAM support.
 - Dragging is captured by a transparent overlay, which means the top and bottom strips of the window
   are excluded so IINA's own controls keep working.
 - Spherical metadata (`sv3d`/Spherical V1) is not read — mpv does not expose it. Stereo layout from

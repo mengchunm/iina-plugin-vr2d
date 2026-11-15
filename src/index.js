@@ -282,7 +282,9 @@ function applyUpdateRate() {
   var configured = prefNumber("updateRate");
   session.setUpdateRate(
     configured > 0 ? configured :
-      (session.state.renderer === "gpu" ? 60 : autoUpdateRate(session.state.out))
+      (session.state.renderer === "gpu"
+        ? (session.legacyGpu() ? 30 : 60)
+        : autoUpdateRate(session.state.out))
   );
 }
 

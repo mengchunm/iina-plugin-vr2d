@@ -708,6 +708,7 @@ module.exports = {
   setGesture: setGesture,
   setUpdateRate: setUpdateRate,
   setGpuMode: setGpuMode,
+  legacyGpu: function () { return gpu.isLegacy(); },
   gpuError: function () { return gpu.lastError(); },
   setView: setView,
   resetView: resetView,
