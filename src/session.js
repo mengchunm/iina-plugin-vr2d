@@ -16,6 +16,7 @@
 var detect = require("./detect.js");
 var diag = require("./diag.js");
 var filter = require("./filter.js");
+var gpu = require("./gpu.js");
 var geometry = require("./geometry.js");
 var presets = require("./presets.js");
 
@@ -31,6 +32,7 @@ var state = {
   overrides: { layout: "auto", projection: "auto", eye: "left" },
   view: { yaw: 0, pitch: 0, fov: 90 },
   out: { width: 1920, height: 1080, interp: "line" },
+  renderer: "cpu",
 };
 
 // Last values actually handed to mpv, so we only send what moved.
@@ -42,6 +44,7 @@ var attachedView = null;
 var dirty = false;
 var timer = null;
 var updateRate = 30;
+var gpuMode = "auto";
 var changeHandlers = [];
 var errorHandlers = [];
 
@@ -141,6 +144,7 @@ function restoreHwdec() {
  * chain matching what we asked `v360` for.
  */
 function filterIsLive() {
+  if (state.renderer === "gpu") return true;
   try {
     var params = mpv.getNative("video-out-params");
     if (!params || !(params.w > 0)) return true; // can't tell; assume fine
@@ -184,6 +188,24 @@ function ownsWholeChain() {
 function attach() {
   var s = source();
   if (!s) return;
+
+  if (state.renderer === "gpu") {
+    state.attached = gpu.update(s, state.view, state.out, state.overrides.eye);
+    if (!state.attached) {
+      console.warn("VR2D: GPU shader update failed; falling back to CPU reprojection");
+      gpu.disable();
+      state.renderer = "cpu";
+      ensureSoftwareFrames();
+      attach();
+      return;
+    }
+    attachedView = { yaw: state.view.yaw, pitch: state.view.pitch, fov: state.view.fov };
+    pushed.yaw = state.view.yaw;
+    pushed.pitch = state.view.pitch;
+    pushed.fov = state.view.fov;
+    return;
+  }
+
   var value = filter.buildVfValue(s, state.view, state.out, state.overrides.eye);
 
   // `remove` then `add` leaves a moment with no filter, and mpv can put an
@@ -299,6 +321,7 @@ function setGesture(active) {
 }
 
 function resync() {
+  if (state.renderer === "gpu") return;
   // Whatever just happened may have rebuilt the graph, in which case the filter
   // is back at the string and every `vf-command` since is gone. Forget what we
   // think it holds so the next push sends absolute angles instead of being
@@ -374,6 +397,13 @@ function scheduleVerify(attempt) {
 }
 
 function detach() {
+  if (state.renderer === "gpu") {
+    gpu.disable();
+    state.attached = false;
+    attachedView = null;
+    pushed.yaw = pushed.pitch = pushed.fov = null;
+    return;
+  }
   if (!state.attached) return;
   diag.log("detach", diag.v(attachedView));
   mpv.command("vf", ["remove", "@" + LABEL]);
@@ -402,6 +432,20 @@ function isPaused() {
 function flush() {
   if (!dirty || !state.attached) return;
 
+  if (state.renderer === "gpu") {
+    dirty = false;
+    var gpuView = state.view;
+    if (gpu.update(source(), gpuView, state.out, state.overrides.eye)) {
+      attachedView = { yaw: gpuView.yaw, pitch: gpuView.pitch, fov: gpuView.fov };
+      pushed.yaw = gpuView.yaw;
+      pushed.pitch = gpuView.pitch;
+      pushed.fov = gpuView.fov;
+    } else {
+      console.warn("VR2D: GPU update failed during pan");
+    }
+    return;
+  }
+
   // A paused frame has already been through the filter, and changing `v360`'s
   // parameters does not make mpv re-run the chain on it -- the view state moves
   // but the picture never redraws. Re-attaching does force a re-filter, so
@@ -421,16 +465,17 @@ function flush() {
   // Each of these rebuilds the remap table in full, so a change too small to
   // see is not worth sending. A mostly-horizontal drag still jitters pitch by a
   // fraction of a degree every frame; ignoring that roughly halves the work.
+  // Target v360 directly because the crop filter cannot handle these commands.
   if (moved(v.yaw, pushed.yaw)) {
-    mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw))]);
+    mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw)), "v360"]);
     pushed.yaw = v.yaw;
   }
   if (moved(v.pitch, pushed.pitch)) {
-    mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch))]);
+    mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch)), "v360"]);
     pushed.pitch = v.pitch;
   }
   if (moved(v.fov, pushed.fov)) {
-    mpv.command("vf-command", [LABEL, "d_fov", String(round2(v.fov))]);
+    mpv.command("vf-command", [LABEL, "d_fov", String(round2(v.fov)), "v360"]);
     pushed.fov = v.fov;
   }
 
@@ -548,6 +593,10 @@ function setUpdateRate(rate) {
   if (state.enabled) startTimer();
 }
 
+function setGpuMode(mode) {
+  gpuMode = mode === "on" || mode === "off" ? mode : "auto";
+}
+
 /** Move the view. `next` is a full `{yaw, pitch, fov}`; it gets clamped here. */
 function setView(next) {
   var s = source();
@@ -580,10 +629,13 @@ function enable(defaultFov) {
     state.out.width,
     state.out.height
   );
-  ensureSoftwareFrames();
+  state.renderer = gpu.enable(source(), state.view, state.out, state.overrides.eye, gpuMode)
+    ? "gpu"
+    : "cpu";
+  if (state.renderer === "cpu") ensureSoftwareFrames();
   attach();
   startTimer();
-  scheduleVerify(0);
+  if (state.renderer === "cpu") scheduleVerify(0);
   notify();
   return true;
 }
@@ -624,6 +676,7 @@ module.exports = {
   setOutput: setOutput,
   setGesture: setGesture,
   setUpdateRate: setUpdateRate,
+  setGpuMode: setGpuMode,
   setView: setView,
   resetView: resetView,
   enable: enable,

@@ -192,6 +192,20 @@
     </p>
 
     <div class="row">
+      <label class="name" for="gpuMode">GPU reprojection</label>
+      <select id="gpuMode">
+        <option value="auto">Auto — use gpu-next when selected in IINA</option>
+        <option value="on">On — switch this player to gpu-next</option>
+        <option value="off">Off — use CPU v360</option>
+      </select>
+    </div>
+    <p class="hint">
+      GPU mode uses Metal through IINA's gpu-next renderer for equirectangular 180°/360° video.
+      EAC and fisheye sources automatically use the CPU fallback. Set IINA's video output to
+      gpu-next for Auto mode.
+    </p>
+
+    <div class="row">
       <label class="name" for="interp">Interpolation</label>
       <select id="interp">
         <option value="cubic">Bicubic — recommended</option>
@@ -243,6 +257,7 @@
           fieldOfView: "int",
           quality: "int",
           updateRate: "int",
+          gpuMode: "string",
           keyStep: "int",
           topSafeArea: "int",
           bottomSafeArea: "int",
@@ -264,6 +279,7 @@
           quality: 0,
           interp: "cubic",
           updateRate: 0,
+          gpuMode: "auto",
           dragSensitivity: 1,
           keyStep: 35,
           eye: "left",

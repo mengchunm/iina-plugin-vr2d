@@ -1,18 +1,19 @@
 {
   "name": "VR2D",
   "identifier": "io.github.fetzu.vr2d",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Watch 3D VR videos (180°/360°, side-by-side or over-under, equirectangular or fisheye) as a flat 2D image you can pan and zoom. Detects VR sources automatically from file names and container metadata.",
   "author": {
     "name": "fetzu",
     "url": "https://github.com/fetzu"
   },
-  "ghRepo": "fetzu/iina-plugin-vr2d",
+  "ghRepo": "mengchunm/iina-plugin-vr2d",
   "ghVersion": 1,
   "entry": "src/index.js",
   "permissions": [
     "show-osd",
-    "video-overlay"
+    "video-overlay",
+    "file-system"
   ],
   "preferencesPage": "ui/preferences.html",
   "preferenceDefaults": {
@@ -25,6 +26,7 @@
     "quality": 0,
     "interp": "cubic",
     "updateRate": 0,
+    "gpuMode": "auto",
     "dragSensitivity": 1,
     "keyStep": 35,
     "eye": "left",

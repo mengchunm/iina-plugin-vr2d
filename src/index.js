@@ -41,6 +41,7 @@ var DEFAULTS = {
   quality: 0, // 0 = match the display; otherwise a maximum height
   interp: "cubic",
   updateRate: 0, // 0 = pace automatically from the rendered size
+  gpuMode: "auto", // auto = use gpu-next when already selected; on = try to switch
   dragSensitivity: 1,
   keyStep: 35, // per cent of the visible field per second
   eye: "left",
@@ -84,7 +85,7 @@ function rememberEye(eye) {
  * reopened. Comparing a handful of values every couple of seconds costs
  * nothing and makes the settings behave the way the page implies they do.
  */
-var WATCHED_PREFS = ["quality", "interp", "updateRate", "dragToPan", "showHud"];
+var WATCHED_PREFS = ["quality", "interp", "updateRate", "dragToPan", "showHud", "gpuMode"];
 var prefSignature = null;
 
 function preferenceSignature() {
@@ -410,6 +411,7 @@ function enableVR2D(announce) {
   // Measure the window before attaching: once the filter is running,
   // `osd-dimensions` reports our own output instead of the window.
   captureWindowBaseline();
+  session.setGpuMode(pref("gpuMode"));
   applyOutput();
   if (!session.enable(startingFov(session.state.out))) return;
 

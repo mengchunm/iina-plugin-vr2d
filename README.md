@@ -195,20 +195,15 @@ design:
 
 ### Two things that were tried and rejected
 
-- **Reprojecting in a GPU shader.** This would have made panning genuinely
-  instantaneous and free. mpv 0.38 has `glsl-shader-opts` and the bundled
-  libplacebo supports `//!PARAM`, but IINA renders through mpv's *classic* GPU
-  renderer, which does not: loading such a shader logs
-  `Unrecognized command 'PARAM shift'`. Without runtime uniforms there is no way
-  to steer a shader from the plugin, so this is not available until IINA adopts
-  `gpu-next`.
-- **Rendering smaller while panning and sharper when still.** The obvious way to
-  have both. It resizes the user's window on every drag, because of the coupling
-  above, so it was removed.
+- **Reprojecting in a GPU shader.** VR2D now uses this path when IINA is running
+  `gpu-next` on equirectangular input. `//!PARAM` values update yaw, pitch, field
+  of view and source layout without rebuilding the CPU filter graph. EAC and
+  fisheye input uses the CPU fallback.
+- **Rendering smaller while panning and sharper when still.** It resizes the user's window on every drag on the CPU path. GPU mode keeps native output size and uses the renderer's Metal scaling for supported projections.
 
-What is left to make movement feel immediate is the read-out: the overlay
+What is left to make movement feel immediate on the CPU fallback is the read-out: the overlay
 predicts the view locally, with the same maths the plugin uses, so the angles and
-the field map track the cursor exactly while the picture follows a beat behind.
+the field map track the cursor while the picture follows the paced filter updates.
 
 ## Detection
 
