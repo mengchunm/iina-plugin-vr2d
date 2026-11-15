@@ -46,11 +46,17 @@ function isSupported(source) {
   return projectionName(source) !== null;
 }
 
-function currentVo() {
+function gpuOutputActive() {
+  var vo = currentVo();
+  if (vo === "gpu-next") return true;
+  // IINA can expose libmpv as the vo property while its internal renderer is
+  // gpu-next. vo-passes is populated by the libplacebo renderer and avoids
+  // falling back to CPU just because of that wrapper name.
   try {
-    return mpv.getString("vo");
+    var passes = mpv.getNative("vo-passes");
+    return !!(passes && (Array.isArray(passes) ? passes.length : true));
   } catch (e) {
-    return "";
+    return false;
   }
 }
 
@@ -101,7 +107,7 @@ function enable(source, view, out, eye, mode) {
 
   // Never change vo from a running plugin. IINA's actual renderer is
   // gpu-next; if another output is selected, the caller uses CPU v360.
-  if (currentVo() !== "gpu-next") return false;
+  if (!gpuOutputActive()) return false;
 
   try {
     file.write(SHADER_PATH, shader);
