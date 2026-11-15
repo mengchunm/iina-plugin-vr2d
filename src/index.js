@@ -285,7 +285,9 @@ var PAN_CPU_BUDGET = 4.0; // CPU-seconds per wall second
 
 function autoUpdateRate(out) {
   var megapixels = (out.width * out.height) / 1e6;
-  var perStep = 2 * CPU_SECONDS_PER_MEGAPIXEL * megapixels;
+  // flush sends one runtime option per tick, so one remap table is rebuilt per
+  // update. The final absolute view is committed when the gesture ends.
+  var perStep = CPU_SECONDS_PER_MEGAPIXEL * megapixels;
   return Math.round(geometry.clamp(PAN_CPU_BUDGET / perStep, 10, 30));
 }
 

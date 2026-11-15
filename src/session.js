@@ -462,21 +462,22 @@ function flush() {
   dirty = false;
   var v = state.view;
 
-  // Each of these rebuilds the remap table in full, so a change too small to
-  // see is not worth sending. A mostly-horizontal drag still jitters pitch by a
-  // fraction of a degree every frame; ignoring that roughly halves the work.
-  // Target v360 directly because the crop filter cannot handle these commands.
-  if (moved(v.yaw, pushed.yaw)) {
-    mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw)), "v360"]);
-    pushed.yaw = v.yaw;
-  }
-  if (moved(v.pitch, pushed.pitch)) {
-    mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch)), "v360"]);
-    pushed.pitch = v.pitch;
-  }
-  if (moved(v.fov, pushed.fov)) {
+  // A high-resolution v360 update is expensive. Sending yaw and pitch in
+  // separate commands makes the same frame pay for two complete remap-table
+  // rebuilds. Pick the largest pending change and send one command per tick;
+  // the latest absolute view is committed when the gesture ends.
+  var yawDelta = distance(v.yaw, pushed.yaw);
+  var pitchDelta = distance(v.pitch, pushed.pitch);
+  var fovDelta = distance(v.fov, pushed.fov);
+  if (fovDelta >= yawDelta && fovDelta >= pitchDelta && moved(v.fov, pushed.fov)) {
     mpv.command("vf-command", [LABEL, "d_fov", String(round2(v.fov)), "v360"]);
     pushed.fov = v.fov;
+  } else if (yawDelta >= pitchDelta && moved(v.yaw, pushed.yaw)) {
+    mpv.command("vf-command", [LABEL, "yaw", String(round2(v.yaw)), "v360"]);
+    pushed.yaw = v.yaw;
+  } else if (moved(v.pitch, pushed.pitch)) {
+    mpv.command("vf-command", [LABEL, "pitch", String(round2(v.pitch)), "v360"]);
+    pushed.pitch = v.pitch;
   }
 
   scheduleCommit();
@@ -492,6 +493,10 @@ function round2(n) {
  */
 function moved(current, sent) {
   return sent === null || Math.abs(current - sent) > 0.1;
+}
+
+function distance(current, sent) {
+  return sent === null ? Infinity : Math.abs(current - sent);
 }
 
 function startTimer() {
