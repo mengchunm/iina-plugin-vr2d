@@ -13,8 +13,6 @@ var file = iina.file;
 
 var SHADER_PATH = "/private/tmp/iina-vr2d-" + Math.random().toString(36).slice(2, 10) + ".glsl";
 var active = false;
-var changedVo = false;
-var savedVo = null;
 
 var SHADER = [
   "//!PARAM yaw",
@@ -145,23 +143,11 @@ function enable(source, view, out, eye, mode) {
   if (!isSupported(source) || mode === "off") return false;
 
   var vo = currentVo();
-  if (vo !== "gpu-next") {
-    if (mode !== "on") return false;
-    try {
-      savedVo = vo;
-      mpv.set("vo", "gpu-next");
-      if (currentVo() !== "gpu-next") {
-        try { if (savedVo) mpv.set("vo", savedVo); } catch (ignored) {}
-        savedVo = null;
-        return false;
-      }
-      changedVo = true;
-    } catch (e) {
-      try { if (savedVo) mpv.set("vo", savedVo); } catch (ignored) {}
-      savedVo = null;
-      return false;
-    }
-  }
+  // Changing vo while a video is already running causes IINA 1.5 to rebuild
+  // the output asynchronously. Installing the shader during that rebuild can
+  // leave a black frame, so GPU mode is opt-in through IINA's video output
+  // setting and never changes vo at runtime.
+  if (vo !== "gpu-next") return false;
 
   try {
     file.write(SHADER_PATH, SHADER);
@@ -190,11 +176,6 @@ function disable() {
     try { mpv.command("change-list", ["glsl-shaders", "remove", SHADER_PATH]); } catch (e) {}
     active = false;
   }
-  if (changedVo && savedVo) {
-    try { mpv.set("vo", savedVo); } catch (e) {}
-  }
-  changedVo = false;
-  savedVo = null;
   try { file.delete(SHADER_PATH); } catch (e) {}
 }
 

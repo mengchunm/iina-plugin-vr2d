@@ -26,7 +26,7 @@
     "quality": 0,
     "interp": "cubic",
     "updateRate": 0,
-    "gpuMode": "on",
+    "gpuMode": "auto",
     "dragSensitivity": 1,
     "keyStep": 35,
     "eye": "left",

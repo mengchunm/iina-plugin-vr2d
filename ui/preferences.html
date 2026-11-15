@@ -194,8 +194,8 @@
     <div class="row">
       <label class="name" for="gpuMode">GPU reprojection</label>
       <select id="gpuMode">
-        <option value="on">On — use gpu-next when supported (recommended on Apple Silicon)</option>
-        <option value="auto">Auto — use gpu-next when already selected in IINA</option>
+        <option value="auto">Auto — use GPU when IINA is already set to gpu-next</option>
+        <option value="on">On — require gpu-next (otherwise use CPU fallback)</option>
         <option value="off">Off — use CPU v360</option>
       </select>
     </div>
@@ -279,7 +279,7 @@
           quality: 0,
           interp: "cubic",
           updateRate: 0,
-          gpuMode: "on",
+          gpuMode: "auto",
           dragSensitivity: 1,
           keyStep: 35,
           eye: "left",
