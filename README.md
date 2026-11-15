@@ -196,19 +196,22 @@ design:
 ### GPU path and CPU fallback
 
 On IINA 1.5 and later, VR2D can use `vo=gpu-next` with Metal through libplacebo. The default
-**Auto** mode uses the GPU only when IINA is already configured with `vo=gpu-next`. VR2D does
-not change the video output while a file is playing, because IINA 1.5 rebuilds that output
-asynchronously. If `gpu-next` is not active, the plugin uses the CPU fallback. Equirectangular
-180°/360° sources use the GPU shader; EAC and fisheye sources use the CPU `v360` fallback. The
-fallback uses `reset_rot=1` and targets `v360` explicitly for stable absolute-angle updates.
+**Auto** mode uses the GPU when IINA exposes the libplacebo video passes, including IINA's
+`libmpv` wrapper. VR2D does not change the video output while a file is playing, because IINA
+rebuilds that output asynchronously. When GPU passes are unavailable, the plugin uses the CPU
+fallback. The GPU shader is adapted from the MIT licensed `kasper93/mpv360` projection core and
+supports equirectangular, half equirectangular, dual fisheye, dual vertical equirectangular and
+EAC layouts. It updates yaw, pitch and FOV through `glsl-shader-opts`, so dragging never rebuilds
+an FFmpeg filter graph. The CPU fallback uses `reset_rot=1` and targets `v360` explicitly.
 
 ### Two things that were tried and rejected
 
-- **Reprojecting in a GPU shader.** VR2D now uses this path when IINA is running
-  `gpu-next` on equirectangular input. `//!PARAM` values update yaw, pitch, field
-  of view and source layout without rebuilding the CPU filter graph. EAC and
-  fisheye input uses the CPU fallback.
-- **Rendering smaller while panning and sharper when still.** It resizes the user's window on every drag on the CPU path. GPU mode keeps native output size and uses the renderer's Metal scaling for supported projections.
+- **Reprojecting in a GPU shader.** VR2D uses the `mpv360` projection model when libplacebo
+  passes are available. Parameter changes update the GPU render pass directly and keep the
+  source at native resolution. Unsupported output paths use the CPU fallback.
+- **Rendering smaller while panning and sharper when still.** The implementation keeps the
+  output resolution unchanged. The CPU path reduces duplicate remap work when GPU passes are
+  unavailable.
 
 What is left to make movement feel immediate on the CPU fallback is the read-out: the overlay
 predicts the view locally, with the same maths the plugin uses, so the angles and
