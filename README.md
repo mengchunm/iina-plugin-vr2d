@@ -193,6 +193,15 @@ design:
   that leaves the window alone, and puts the window back if a deliberate change
   (like the quality cap) would otherwise move it.
 
+### GPU path and CPU fallback
+
+On IINA 1.5 and later, VR2D can use `vo=gpu-next` with Metal through libplacebo. The default
+**On** mode tries to switch the player to `gpu-next` and falls back to CPU if the current IINA
+build does not allow runtime switching. Use **Auto** after selecting `gpu-next` as IINA's video
+output yourself. Equirectangular 180°/360° sources use the GPU shader; EAC and fisheye sources
+use the CPU `v360` fallback. The fallback uses `reset_rot=1` and targets `v360` explicitly for
+stable absolute-angle updates on IINA 1.5.
+
 ### Two things that were tried and rejected
 
 - **Reprojecting in a GPU shader.** VR2D now uses this path when IINA is running

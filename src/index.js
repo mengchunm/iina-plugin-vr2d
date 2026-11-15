@@ -41,7 +41,7 @@ var DEFAULTS = {
   quality: 0, // 0 = match the display; otherwise a maximum height
   interp: "cubic",
   updateRate: 0, // 0 = pace automatically from the rendered size
-  gpuMode: "auto", // auto = use gpu-next when already selected; on = try to switch
+  gpuMode: "on", // try gpu-next on Apple Silicon; fall back to CPU when unavailable
   dragSensitivity: 1,
   keyStep: 35, // per cent of the visible field per second
   eye: "left",
