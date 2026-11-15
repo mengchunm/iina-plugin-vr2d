@@ -697,6 +697,7 @@ module.exports = {
   setGesture: setGesture,
   setUpdateRate: setUpdateRate,
   setGpuMode: setGpuMode,
+  gpuError: function () { return gpu.lastError(); },
   setView: setView,
   resetView: resetView,
   enable: enable,

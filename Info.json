@@ -8,7 +8,7 @@
     "url": "https://github.com/fetzu"
   },
   "ghRepo": "mengchunm/iina-plugin-vr2d",
-  "ghVersion": 3,
+  "ghVersion": 4,
   "entry": "src/index.js",
   "permissions": [
     "show-osd",

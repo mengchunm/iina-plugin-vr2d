@@ -16,6 +16,7 @@ var shader = require("./gpu-shader.js");
 var SHADER_NAME = "iina-vr2d";
 var SHADER_PATH = "/private/tmp/" + SHADER_NAME + ".glsl";
 var active = false;
+var lastError = null;
 var RAD = Math.PI / 180;
 
 function projectionName(source) {
@@ -46,6 +47,14 @@ function isSupported(source) {
   return projectionName(source) !== null;
 }
 
+function currentVo() {
+  try {
+    return mpv.getString("vo");
+  } catch (e) {
+    return "";
+  }
+}
+
 function gpuOutputActive() {
   var vo = currentVo();
   if (vo === "gpu-next" || vo === "libmpv") return true;
@@ -60,6 +69,10 @@ function gpuOutputActive() {
   }
 }
 
+function fail(reason) {
+  lastError = reason;
+  return false;
+}
 function samplingName(interp) {
   if (interp === "lanczos") return "lanczos";
   if (interp === "cubic") return "mitchell";
@@ -103,24 +116,23 @@ function setOptions(source, view, out, eye) {
 }
 
 function enable(source, view, out, eye, mode) {
-  if (!isSupported(source) || mode === "off") return false;
+  if (!isSupported(source) || mode === "off") return fail(mode === "off" ? "GPU mode is off" : "projection is not supported by the GPU shader");
 
-  // Never change vo from a running plugin. IINA's actual renderer is
-  // gpu-next; if another output is selected, the caller uses CPU v360.
-  if (!gpuOutputActive()) return false;
+  if (!gpuOutputActive()) return fail("IINA GPU passes are unavailable");
 
   try {
     file.write(SHADER_PATH, shader);
     mpv.command("change-list", ["glsl-shaders", "append", SHADER_PATH]);
     if (!setOptions(source, view, out, eye)) {
       disable();
-      return false;
+      return fail("could not set GPU shader parameters");
     }
     active = true;
+    lastError = null;
     return true;
   } catch (e) {
     disable();
-    return false;
+    return fail("shader file or GPU command failed: " + String(e));
   }
 }
 
@@ -146,5 +158,6 @@ module.exports = {
   update: update,
   disable: disable,
   isActive: function () { return active; },
+  lastError: function () { return lastError; },
   isSupported: isSupported,
 };
