@@ -48,7 +48,7 @@ function isSupported(source) {
 
 function gpuOutputActive() {
   var vo = currentVo();
-  if (vo === "gpu-next") return true;
+  if (vo === "gpu-next" || vo === "libmpv") return true;
   // IINA can expose libmpv as the vo property while its internal renderer is
   // gpu-next. vo-passes is populated by the libplacebo renderer and avoids
   // falling back to CPU just because of that wrapper name.
