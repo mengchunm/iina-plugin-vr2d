@@ -241,23 +241,10 @@ function computeOutput() {
   }
 
   /*
-   * Never render more pixels than the source can actually fill.
-   *
-   * Pushing the view to mpv blocks the plugin thread while v360 rebuilds its
-   * remap table, and that cost is proportional to output pixels — 54 ms at
-   * 3024x1512, enough to stall a drag. Most of those pixels are invented: a
-   * 1440-wide eye covering 180° holds 8 pixels per degree, so a 105° view is
-   * worth about 840 of them. Rendering a comfortable multiple of that is
-   * sharp to the eye and several times cheaper to move around in.
-   *
-   * A high-resolution source justifies the full display size and gets it; it
-   * is only the upscaling that is skipped.
+   * Keep the render target at the captured window pixel size. VR2D must not
+   * silently lower resolution during a gesture: the GPU drag path reduces
+   * shader sampling work instead, while preserving every output pixel.
    */
-  var justified = resolvableWidth();
-  if (justified > 0 && justified < width) {
-    height = (height * justified) / width;
-    width = justified;
-  }
 
   // Exactly the target, rounded only to even numbers for chroma subsampling.
   // Quantising coarser than this skews the aspect ratio and letterboxes the
@@ -293,25 +280,12 @@ function autoUpdateRate(out) {
 
 function applyUpdateRate() {
   var configured = prefNumber("updateRate");
-  session.setUpdateRate(configured > 0 ? configured : autoUpdateRate(session.state.out));
+  session.setUpdateRate(
+    configured > 0 ? configured :
+      (session.state.renderer === "gpu" ? 60 : autoUpdateRate(session.state.out))
+  );
 }
 
-/** How wide an output the source's own detail can justify, in pixels. */
-function resolvableWidth() {
-  var src = session.source();
-  var size = videoSize();
-  if (!src || !size) return 0;
-  var eyeWidth = src.layout === "sbs" ? size.width / 2 : size.width;
-  var pixelsPerDegree = eyeWidth / Math.max(1, src.inHFov);
-  // 1.8x the source's own density: comfortably past the point where more
-  // pixels stop adding visible detail, without paying for a blind upscale.
-  return Math.round(pixelsPerDegree * prefNumber("fieldOfView") * 1.8);
-}
-
-/**
- * The starting view, as a diagonal FOV. The preference is horizontal, so it has
- * to be converted for whatever shape the output actually is.
- */
 function startingFov(out) {
   return geometry.diagonalFromHorizontal(prefNumber("fieldOfView"), out.width, out.height);
 }

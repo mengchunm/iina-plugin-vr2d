@@ -17,6 +17,7 @@ var SHADER_NAME = "iina-vr2d";
 var SHADER_PATH = "/private/tmp/" + SHADER_NAME + ".glsl";
 var active = false;
 var lastError = null;
+var shaderOptsBefore = null;
 var RAD = Math.PI / 180;
 
 function projectionName(source) {
@@ -89,7 +90,21 @@ function optionNumber(n) {
   return String(Math.round(n * 1000000) / 1000000);
 }
 
-function setOptions(source, view, out, eye) {
+function setShaderOptions(params) {
+  var options = [];
+  try {
+    var current = mpv.getNative("glsl-shader-opts");
+    if (Array.isArray(current)) options = current.filter(function (item) {
+      return typeof item === "string" && item.indexOf(SHADER_NAME + "/") !== 0;
+    });
+  } catch (e) {}
+  options.push(params);
+  // `add` grows this list on every mouse move. Replace it so long drags do not
+  // accumulate hundreds of stale yaw/pitch/FOV values.
+  mpv.command("change-list", ["glsl-shader-opts", "set", options.join(",")]);
+}
+
+function setOptions(source, view, out, eye, dragging) {
   var projection = projectionName(source);
   if (!projection) return false;
 
@@ -106,12 +121,12 @@ function setOptions(source, view, out, eye) {
     SHADER_NAME + "/input_projection=" + projection,
     SHADER_NAME + "/eye=" + effective,
     SHADER_NAME + "/fisheye_fov=" + optionNumber(fishFov * RAD),
-    SHADER_NAME + "/sampling=" + samplingName(out.interp),
+    // Keep full output dimensions and source pixels while dragging. Linear
+    // sampling is the fast path; still images restore the configured filter.
+    SHADER_NAME + "/sampling=" + (dragging ? "linear" : samplingName(out.interp)),
   ].join(",");
 
-  // `change-list ... add` is the update pattern used by mpv360 itself. It
-  // updates libplacebo parameters without rebuilding the video filter graph.
-  mpv.command("change-list", ["glsl-shader-opts", "add", params]);
+  setShaderOptions(params);
   return true;
 }
 
@@ -121,9 +136,18 @@ function enable(source, view, out, eye, mode) {
   if (!gpuOutputActive()) return fail("IINA GPU passes are unavailable");
 
   try {
+    shaderOptsBefore = [];
+    try {
+      var existing = mpv.getNative("glsl-shader-opts");
+      if (Array.isArray(existing)) {
+        shaderOptsBefore = existing.filter(function (item) {
+          return typeof item === "string" && item.indexOf(SHADER_NAME + "/") !== 0;
+        });
+      }
+    } catch (e) {}
     file.write(SHADER_PATH, shader);
     mpv.command("change-list", ["glsl-shaders", "append", SHADER_PATH]);
-    if (!setOptions(source, view, out, eye)) {
+    if (!setOptions(source, view, out, eye, false)) {
       disable();
       return fail("could not set GPU shader parameters");
     }
@@ -136,10 +160,10 @@ function enable(source, view, out, eye, mode) {
   }
 }
 
-function update(source, view, out, eye) {
+function update(source, view, out, eye, dragging) {
   if (!active) return false;
   try {
-    return setOptions(source, view, out, eye);
+    return setOptions(source, view, out, eye, !!dragging);
   } catch (e) {
     return false;
   }
@@ -150,6 +174,12 @@ function disable() {
     try { mpv.command("change-list", ["glsl-shaders", "remove", SHADER_PATH]); } catch (e) {}
     active = false;
   }
+  try {
+    if (shaderOptsBefore !== null) {
+      mpv.command("change-list", ["glsl-shader-opts", "set", shaderOptsBefore.join(",")]);
+    }
+  } catch (e) {}
+  shaderOptsBefore = null;
   try { file.delete(SHADER_PATH); } catch (e) {}
 }
 

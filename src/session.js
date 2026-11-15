@@ -316,6 +316,7 @@ function scheduleCommit() {
 function setGesture(active) {
   if (gestureActive === active) return;
   gestureActive = active;
+  dirty = true;
   diag.log("gesture", String(active));
   // The end of a drag is exactly when the string should catch up.
   if (!active) scheduleCommit();
@@ -436,7 +437,7 @@ function flush() {
   if (state.renderer === "gpu") {
     dirty = false;
     var gpuView = state.view;
-    if (gpu.update(source(), gpuView, state.out, state.overrides.eye)) {
+    if (gpu.update(source(), gpuView, state.out, state.overrides.eye, gestureActive)) {
       attachedView = { yaw: gpuView.yaw, pitch: gpuView.pitch, fov: gpuView.fov };
       pushed.yaw = gpuView.yaw;
       pushed.pitch = gpuView.pitch;
